@@ -21,12 +21,8 @@ PHYSIOS = {
 }
 
 ERGOS = {
-    7014: "Amir",
-    6418: "Camille",
-    5303: "Cindy",
-    5783: "David",
-    6911: "Younès",
-    4516: "Roxane",
+    7014: "Amir", 6418: "Camille", 5303: "Cindy", 
+    5783: "David", 6911: "Younès", 4516: "Roxane",
 }
 
 MASSEUSE = {3363: "Louise"}
@@ -50,15 +46,12 @@ LIGNE_CA_ERGO_MENSUEL = 58
 
 def charger_donnees(file_source):
     df = pd.read_excel(file_source, sheet_name=ONGLET_SOURCE)
-
     df["ID"] = df["Thérapeute"].astype(str).str.extract(r"\((\d+)\)")
     df = df.dropna(subset=["ID"])
     df["ID"] = df["ID"].astype(int)
-
     df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
     df = df[df["Date"].dt.year == ANNEE]
     df = df[df["Chiffre"] > 0]
-
     df["Code tarifaire"] = df["Code tarifaire"].astype(str)
     df["EstSéance"] = df["Code tarifaire"].isin(CODES_SEANCE)
 
@@ -75,10 +68,9 @@ def charger_donnees(file_source):
     return df
 
 def mettre_a_jour_excel(df, file_cible):
-    # Charger le fichier cible en mémoire
     wb = openpyxl.load_workbook(file_cible)
     if ONGLET_CIBLE not in wb.sheetnames:
-        st.error(f"L'onglet '{ONGLET_CIBLE}' est introuvable dans le fichier cible.")
+        st.error(f"L'onglet '{ONGLET_CIBLE}' est introuvable.")
         return None
     ws = wb[ONGLET_CIBLE]
 
@@ -104,7 +96,6 @@ def mettre_a_jour_excel(df, file_cible):
     for mois, val in df_ergo.groupby("Mois")["Chiffre"].sum().items():
         ws.cell(row=LIGNE_CA_ERGO_MENSUEL, column=mois + 2).value = float(round(val))
 
-    # Sauvegarde dans un buffer
     output = BytesIO()
     wb.save(output)
     output.seek(0)
@@ -113,10 +104,7 @@ def mettre_a_jour_excel(df, file_cible):
 # --- INTERFACE WEB STREAMLIT ---
 
 st.set_page_config(page_title="Calcul CA Thérapeutes", layout="centered")
-st.title("📊 Calculateur de Chiffre d'Affaires 2026")
-st.markdown("---")
-
-st.info("👋 Bienvenue. Importez les deux fichiers pour générer vos statistiques mises à jour.")
+st.title("📊 Mise à jour des Statistiques 2026")
 
 col1, col2 = st.columns(2)
 with col1:
@@ -125,27 +113,25 @@ with col2:
     file_cible = st.file_uploader("🎯 Fichier Cible (Stats 2026)", type=["xlsx"])
 
 if file_source and file_cible:
-    if st.button("🚀 Lancer tous les calculs", type="primary", use_container_width=True):
-        with st.spinner("Analyse et injection des données en cours..."):
+    if st.button("🚀 Lancer les calculs", type="primary", use_container_width=True):
+        with st.spinner("Traitement..."):
             try:
-                # Execution
                 df_traite = charger_donnees(file_source)
                 result_buffer = mettre_a_jour_excel(df_traite, file_cible)
                 
                 if result_buffer:
-                    st.success("✅ Calculs terminés avec succès !")
+                    st.success("✅ Calculs terminés !")
                     
-                    # Bouton de téléchargement
-                    date_str = datetime.now().strftime("%d-%m_%Hh%M")
+                    # On utilise EXACTEMENT le nom du fichier cible chargé
+                    nom_original = file_cible.name 
+                    
                     st.download_button(
-                        label="📥 Télécharger le fichier Stats mis à jour",
+                        label=f"📥 Télécharger et remplacer {nom_original}",
                         data=result_buffer,
-                        file_name=f"Statistiques_2026_Maj_{date_str}.xlsx",
+                        file_name=nom_original, # Même nom pour forcer le remplacement manuel
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         use_container_width=True
                     )
+                    st.warning("⚠️ Pour mettre à jour votre fichier, enregistrez-le par-dessus l'ancien dans votre dossier habituel.")
             except Exception as e:
-                st.error(f"Une erreur est survenue lors du calcul : {e}")
-
-st.markdown("---")
-st.caption("Note : Ce script n'enregistre aucune donnée sur le serveur. Vos fichiers sont traités en mémoire vive.")
+                st.error(f"Erreur : {e}")
